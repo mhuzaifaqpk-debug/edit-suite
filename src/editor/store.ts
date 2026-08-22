@@ -238,48 +238,41 @@ class EditorStore {
     live ? this.editLive(apply) : this.edit(apply);
   }
 
-  trimClip(clipId: string, edge: "start" | "end", timelinePosition: number, live = false) {
+  /**
+   * Trim one edge of a clip. `sourceDuration` is the full length of the source
+   * media (Infinity for stills), used to clamp the out-point.
+   */
+  trimClip(
+    clipId: string,
+    edge: "start" | "end",
+    timelinePosition: number,
+    sourceDuration = Infinity,
+    live = false,
+  ) {
+    const MIN = 0.1;
     const apply = (p: Project) => {
       const found = findClip(p, clipId);
       if (!found) return;
       const clip = found.clip;
-      const minDuration = 0.1;
       if (edge === "start") {
-        const maxPos = clip.timelineStart + clip.duration - minDuration;
-        const limit =
-          clip.type === "image" ? -Infinity : clip.timelineStart - clip.sourceStart;
-        const pos = Math.min(maxPos, Math.max(Math.max(0, limit), timelinePosition));
+        const lowerBound = Math.max(0, clip.timelineStart - clip.sourceStart);
+        const upperBound = clip.timelineStart + clip.duration - MIN;
+        const pos = Math.min(upperBound, Math.max(lowerBound, timelinePosition));
         const delta = pos - clip.timelineStart;
         clip.timelineStart = pos;
         clip.duration -= delta;
-        if (clip.type !== "image") clip.sourceStart += delta;
+        clip.sourceStart += delta;
+        clip.sourceEnd = clip.sourceStart + clip.duration;
       } else {
-        const sourceLimit =
-          clip.type === "image"
-            ? Infinity
-            : clip.timelineStart + (clip.sourceEnd - clip.sourceStart) + (0 - 0);
-        const mediaEnd =
-          clip.type === "image"
-            ? Infinity
-            : clip.timelineStart + (clipSourceLength(clip) - clip.sourceStart + clip.sourceStart);
-        void sourceLimit;
-        void mediaEnd;
-        const maxEnd =
-          clip.type === "image"
-            ? Infinity
-            : clip.timelineStart + (clip.mediaDurationCache ?? Infinity) - clip.sourceStart;
-        const pos = Math.max(
-          clip.timelineStart + minDuration,
-          Math.min(timelinePosition, maxEnd),
-        );
+        const maxEnd = clip.timelineStart + (sourceDuration - clip.sourceStart);
+        const pos = Math.max(clip.timelineStart + MIN, Math.min(timelinePosition, maxEnd));
         clip.duration = pos - clip.timelineStart;
-        if (clip.type !== "image") clip.sourceEnd = clip.sourceStart + clip.duration;
-        else clip.sourceEnd = clip.sourceStart + clip.duration;
+        clip.sourceEnd = clip.sourceStart + clip.duration;
       }
-      if (edge === "start") clip.sourceEnd = clip.sourceStart + clip.duration;
     };
     live ? this.editLive(apply) : this.edit(apply);
   }
+
 
   deleteClip(clipId: string) {
     this.edit((p) => {
