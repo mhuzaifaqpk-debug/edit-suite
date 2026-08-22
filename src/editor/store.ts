@@ -303,17 +303,8 @@ class EditorStore {
   }
 }
 
-/** helper kept out of the Clip type: source length of the trimmed region */
-function clipSourceLength(clip: Clip) {
-  return clip.sourceEnd - clip.sourceStart;
-}
 
-declare module "./types" {
-  interface Clip {
-    /** cached full source duration, filled in when media is available */
-    mediaDurationCache?: number;
-  }
-}
+
 
 export const editorStore = new EditorStore();
 
