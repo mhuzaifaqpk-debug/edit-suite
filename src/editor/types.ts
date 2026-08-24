@@ -54,7 +54,7 @@ export interface MediaAsset {
   duration: number;
   width: number;
   height: number;
-  thumbnail?: string;
+  thumbnail?: string | undefined;
   createdAt: number;
 }
 
