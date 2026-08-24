@@ -114,7 +114,9 @@ export function PropertiesPanel({
   aspectLocked: boolean;
   onToggleAspect: () => void;
 }) {
-  const found = useEditor((s) => findClip(s.project, s.selectedClipId));
+  const project = useEditor((s) => s.project);
+  const selectedClipId = useEditor((s) => s.selectedClipId);
+  const found = findClip(project, selectedClipId);
 
   if (!found) {
     return (
