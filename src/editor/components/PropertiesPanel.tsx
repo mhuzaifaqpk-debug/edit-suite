@@ -16,6 +16,7 @@ function NumberField({
   onCommit: (value: number) => void;
 }) {
   const [draft, setDraft] = useState(String(Math.round(value)));
+  console.count("NumberField " + label);
   useEffect(() => setDraft(String(Math.round(value))), [value]);
 
   const commit = () => {
@@ -117,6 +118,7 @@ export function PropertiesPanel({
   const project = useEditor((s) => s.project);
   const selectedClipId = useEditor((s) => s.selectedClipId);
   const found = findClip(project, selectedClipId);
+  console.count("PropertiesPanel");
 
   if (!found) {
     return (
