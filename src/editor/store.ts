@@ -176,7 +176,7 @@ class EditorStore {
   }
 
   // ---- clips ----
-  addMediaToTimeline(asset: MediaAsset, opts?: { trackId?: string; at?: number }) {
+  addMediaToTimeline(asset: MediaAsset, opts?: { trackId?: string | undefined; at?: number | undefined }) {
     const trackType = asset.kind === "audio" ? "audio" : "video";
     const track =
       this.state.project.tracks.find((t) => t.id === opts?.trackId && t.type === trackType) ??
