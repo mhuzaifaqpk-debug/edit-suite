@@ -121,12 +121,26 @@ function probe(url: string, kind: MediaKind) {
     }
     const el = document.createElement(kind === "video" ? "video" : "audio") as HTMLVideoElement;
     el.preload = "metadata";
-    el.onloadedmetadata = () =>
+    const done = (duration: number) =>
       resolve({
-        duration: Number.isFinite(el.duration) ? el.duration : 0,
+        duration: Number.isFinite(duration) && duration > 0 ? duration : 0,
         width: el.videoWidth || 0,
         height: el.videoHeight || 0,
       });
+    el.onloadedmetadata = () => {
+      // Streamed WebM files report Infinity until the end is reached; a large
+      // seek forces the real duration to resolve.
+      if (el.duration === Infinity) {
+        el.currentTime = 1e6;
+        el.ontimeupdate = () => {
+          el.ontimeupdate = null;
+          el.currentTime = 0;
+          done(el.duration);
+        };
+        return;
+      }
+      done(el.duration);
+    };
     el.onerror = reject;
     el.src = url;
   });
