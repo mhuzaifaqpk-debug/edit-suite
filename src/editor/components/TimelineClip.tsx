@@ -34,8 +34,10 @@ export function TimelineClip({
   const sourceDuration = clip.type === "image" ? Infinity : (asset?.duration ?? Infinity);
 
   const timeAt = (clientX: number, el: HTMLElement) => {
-    const laneRect = (el.closest("[data-lane]") as HTMLElement).getBoundingClientRect();
-    return (clientX - laneRect.left) / pixelsPerSecond;
+    const lane = el.closest("[data-lane]") as HTMLElement | null;
+    const laneRect = lane?.getBoundingClientRect();
+    console.log("TRIM", { clientX, lane: !!lane, left: laneRect?.left, t: laneRect ? (clientX - laneRect.left) / pixelsPerSecond : null });
+    return laneRect ? (clientX - laneRect.left) / pixelsPerSecond : 0;
   };
 
   const startGesture = (e: React.PointerEvent, g: Gesture) => {
