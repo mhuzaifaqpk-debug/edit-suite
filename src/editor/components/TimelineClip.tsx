@@ -31,13 +31,16 @@ export function TimelineClip({
   const gesture = useRef<Gesture | null>(null);
   const Icon = ICONS[clip.type];
   const asset = mediaManager.getAsset(clip.mediaId);
-  const sourceDuration = clip.type === "image" ? Infinity : (asset?.duration ?? Infinity);
+  // Unknown/undecodable media reports 0: treat that as "no upper bound" so the
+  // clip stays trimmable instead of collapsing to the minimum length.
+  const probed = asset?.duration ?? 0;
+  const sourceDuration =
+    clip.type === "image" || !Number.isFinite(probed) || probed <= 0 ? Infinity : probed;
 
   const timeAt = (clientX: number, el: HTMLElement) => {
     const lane = el.closest("[data-lane]") as HTMLElement | null;
-    const laneRect = lane?.getBoundingClientRect();
-    console.log("TRIM2", clientX, laneRect?.left, JSON.stringify(editorStore.getState().project.tracks[0]?.clips[0]));
-    return laneRect ? (clientX - laneRect.left) / pixelsPerSecond : 0;
+    if (!lane) return clip.timelineStart;
+    return (clientX - lane.getBoundingClientRect().left) / pixelsPerSecond;
   };
 
   const startGesture = (e: React.PointerEvent, g: Gesture) => {
