@@ -36,7 +36,7 @@ export function TimelineClip({
   const timeAt = (clientX: number, el: HTMLElement) => {
     const lane = el.closest("[data-lane]") as HTMLElement | null;
     const laneRect = lane?.getBoundingClientRect();
-    console.log("TRIM", { clientX, lane: !!lane, left: laneRect?.left, t: laneRect ? (clientX - laneRect.left) / pixelsPerSecond : null });
+    console.log("TRIM2", clientX, laneRect?.left, JSON.stringify(editorStore.getState().project.tracks[0]?.clips[0]));
     return laneRect ? (clientX - laneRect.left) / pixelsPerSecond : 0;
   };
 
@@ -66,7 +66,6 @@ export function TimelineClip({
       editorStore.moveClip(clip.id, Math.max(0, g.startTime + delta), compatible, true);
     } else {
       editorStore.trimClip(clip.id, g.edge, timeAt(e.clientX, el), sourceDuration, true);
-      console.log("AFTER TRIM", sourceDuration, JSON.stringify(editorStore.getState().project.tracks[0]?.clips[0]));
     }
   };
 
