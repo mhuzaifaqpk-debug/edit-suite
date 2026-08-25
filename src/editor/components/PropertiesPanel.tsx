@@ -219,7 +219,7 @@ export function PropertiesPanel({
               field="rotation"
             />
             <NumberField
-              label="Angle"
+              label="Exact"
               value={t.rotation}
               suffix="°"
               onCommit={(rotation) => set({ rotation })}
