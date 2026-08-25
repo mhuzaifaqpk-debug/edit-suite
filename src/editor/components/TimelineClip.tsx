@@ -66,6 +66,7 @@ export function TimelineClip({
       editorStore.moveClip(clip.id, Math.max(0, g.startTime + delta), compatible, true);
     } else {
       editorStore.trimClip(clip.id, g.edge, timeAt(e.clientX, el), sourceDuration, true);
+      console.log("AFTER TRIM", sourceDuration, JSON.stringify(editorStore.getState().project.tracks[0]?.clips[0]));
     }
   };
 
