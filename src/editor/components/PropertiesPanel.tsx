@@ -28,6 +28,18 @@ function KeyframeSection({ clip }: { clip: Clip }) {
 function TextProperties({ clip }: { clip: Clip }) {
   const style = clip.style!; const currentTime = useEditor((s) => s.currentTime); const local = currentTime - clip.timelineStart;
   const setStyle = (patch: Partial<TextStyle>) => editorStore.updateStyle(clip.id, patch);
+  const textAnimatedProperties: AnimatableProperty[] = ["x", "y", "width", "height", "rotation", "scale", "opacity"];
+  const addTextKeyframe = () => {
+    const found = findClip(editorStore.getState().project, clip.id);
+    if (!found) return;
+    const allAtPlayhead = textAnimatedProperties.every((property) => !!keyframeAt(found.clip, property, local));
+    for (const property of textAnimatedProperties) {
+      const has = !!keyframeAt(found.clip, property, local);
+      if (allAtPlayhead ? has : !has) editorStore.toggleKeyframe(clip.id, property);
+    }
+  };
+  const foundNow = findClip(editorStore.getState().project, clip.id)?.clip;
+  const allTextKeysAtPlayhead = !!foundNow && textAnimatedProperties.every((property) => !!keyframeAt(foundNow, property, local));
   return <>
     <Section title="Content"><textarea className="field-input min-h-16 resize-y" value={clip.text ?? ""} onChange={(e) => editorStore.updateText(clip.id, e.target.value)} /></Section>
     <Section title="Typography">
@@ -38,6 +50,7 @@ function TextProperties({ clip }: { clip: Clip }) {
       <label className="flex items-center justify-between text-[11px] text-muted-foreground">Text color<input type="color" value={style.color} onChange={(e) => setStyle({ color: e.target.value })} className="h-7 w-12 cursor-pointer border-0 bg-transparent p-0" /></label>
       <label className="flex items-center justify-between text-[11px] text-muted-foreground">Color opacity<input type="range" min="0" max="100" value={style.colorOpacity} onChange={(e) => setStyle({ colorOpacity: Number(e.target.value) })} className="w-28 accent-primary" /></label>
     </Section>
+    <Section title="Animation"><button type="button" onClick={addTextKeyframe} className={`flex w-full items-center justify-center gap-2 rounded-sm border py-1.5 text-[11px] ${allTextKeysAtPlayhead ? "border-primary bg-primary/15 text-primary" : "border-border bg-panel-raised hover:bg-accent"}`}><Diamond className={`h-3.5 w-3.5 ${allTextKeysAtPlayhead ? "fill-current" : ""}`} />{allTextKeysAtPlayhead ? "Remove keyframe" : "Add keyframe"}</button><p className="text-[10px] text-muted-foreground">Animates position, size, rotation, scale and opacity at the playhead.</p></Section>
     <Section title="Background"><label className="flex items-center gap-2 text-[11px]"><input type="checkbox" checked={style.backgroundEnabled} onChange={(e) => setStyle({ backgroundEnabled: e.target.checked })} /> Enable background</label><label className="flex items-center justify-between text-[11px] text-muted-foreground">Color<input type="color" value={style.backgroundColor} onChange={(e) => setStyle({ backgroundColor: e.target.value })} className="h-7 w-12 cursor-pointer border-0 bg-transparent p-0" /></label><NumberField label="Opacity" value={style.backgroundOpacity} suffix="%" onCommit={(v) => setStyle({ backgroundOpacity: Math.max(0, Math.min(100, v)) })} /><NumberField label="Padding" value={style.padding} suffix="px" onCommit={(v) => setStyle({ padding: Math.max(0, v) })} /><NumberField label="Radius" value={style.borderRadius} suffix="px" onCommit={(v) => setStyle({ borderRadius: Math.max(0, v) })} /></Section>
     {clip.type === "caption" ? <Section title="Caption timing"><NumberField label="Start" value={clip.timelineStart} suffix="s" onCommit={(v) => editorStore.setClipRange(clip.id, Math.max(0, v), clip.timelineStart + clip.duration)} /><NumberField label="End" value={clip.timelineStart + clip.duration} suffix="s" onCommit={(v) => editorStore.setClipRange(clip.id, clip.timelineStart, Math.max(clip.timelineStart + 0.1, v))} /></Section> : null}
     <KeyframeSection clip={clip} />
