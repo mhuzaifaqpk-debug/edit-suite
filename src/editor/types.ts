@@ -1,249 +1,61 @@
 export type MediaKind = "video" | "image" | "audio";
-/** Clips are media-backed or synthetic (text / caption). */
 export type ClipType = MediaKind | "text" | "caption";
 export type TrackType = "video" | "audio" | "text" | "caption";
 
-export interface Transform {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  scale: number;
-  opacity: number;
-}
-
-/** Every property the keyframe engine can animate. */
-export type AnimatableProperty =
-  | "x"
-  | "y"
-  | "width"
-  | "height"
-  | "rotation"
-  | "scale"
-  | "opacity"
-  | "volume";
-
-/** Easing is a hook for future curves; only "linear" is implemented today. */
+export interface Transform { x: number; y: number; width: number; height: number; rotation: number; scale: number; opacity: number; }
+export type AnimatableProperty = "x" | "y" | "width" | "height" | "rotation" | "scale" | "opacity" | "volume";
 export type Easing = "linear" | "hold";
-
-export interface Keyframe {
-  id: string;
-  property: AnimatableProperty;
-  /** seconds, relative to the clip's own start on the timeline */
-  time: number;
-  value: number;
-  easing: Easing;
-}
-
+export interface Keyframe { id: string; property: AnimatableProperty; time: number; value: number; easing: Easing; }
 export type TextAlign = "left" | "center" | "right";
-
 export interface TextStyle {
-  fontFamily: string;
-  fontSize: number;
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  align: TextAlign;
-  color: string;
-  /** 0-100, multiplied with transform opacity */
-  colorOpacity: number;
-  backgroundEnabled: boolean;
-  backgroundColor: string;
-  backgroundOpacity: number;
-  padding: number;
-  borderRadius: number;
-  strokeWidth: number;
-  strokeColor: string;
+  fontFamily: string; fontSize: number; bold: boolean; italic: boolean; underline: boolean; align: TextAlign;
+  color: string; colorOpacity: number; backgroundEnabled: boolean; backgroundColor: string;
+  backgroundOpacity: number; padding: number; borderRadius: number; strokeWidth: number; strokeColor: string;
 }
+export interface AudioProperties { volume: number; fadeIn: number; fadeOut: number; muted: boolean; }
 
-export interface AudioProperties {
-  /** 0-200 (%) */
-  volume: number;
-  fadeIn: number;
-  fadeOut: number;
-  muted: boolean;
+export type EffectType = "blur" | "brightness" | "contrast" | "saturate" | "hue" | "grayscale" | "sepia";
+export interface Effect {
+  id: string;
+  type: EffectType;
+  name: string;
+  enabled: boolean;
+  parameters: Record<string, number>;
+}
+export type TransitionType = "fade" | "dissolve" | "wipe" | "slide" | "zoom" | "push" | "blur";
+export interface Transition {
+  id: string;
+  type: TransitionType;
+  duration: number;
 }
 
 export interface Clip {
-  id: string;
-  type: ClipType;
-  /** empty for text / caption clips */
-  mediaId: string;
-  name: string;
-  /** position on the timeline, in seconds */
-  timelineStart: number;
-  /** visible length on the timeline, in seconds */
-  duration: number;
-  /** in-point inside the source media, in seconds */
-  sourceStart: number;
-  /** out-point inside the source media, in seconds */
-  sourceEnd: number;
-  transform: Transform;
-  keyframes: Keyframe[];
-  audio: AudioProperties;
-  /** text / caption content */
-  text?: string;
-  style?: TextStyle;
+  id: string; type: ClipType; mediaId: string; name: string; timelineStart: number; duration: number;
+  sourceStart: number; sourceEnd: number; transform: Transform; keyframes: Keyframe[]; audio: AudioProperties;
+  text?: string; style?: TextStyle; effects?: Effect[]; transitionIn?: Transition;
 }
+export interface Track { id: string; name: string; type: TrackType; clips: Clip[]; }
+export interface Project { id: string; name: string; width: number; height: number; tracks: Track[]; updatedAt: number; }
+export interface MediaAsset { id: string; name: string; kind: MediaKind; mimeType: string; size: number; duration: number; width: number; height: number; thumbnail?: string | undefined; waveform?: number[] | undefined; createdAt: number; }
 
-export interface Track {
-  id: string;
-  name: string;
-  type: TrackType;
-  clips: Clip[];
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  tracks: Track[];
-  updatedAt: number;
-}
-
-/** Media descriptor. Binary data lives in IndexedDB, never in the project JSON. */
-export interface MediaAsset {
-  id: string;
-  name: string;
-  kind: MediaKind;
-  mimeType: string;
-  size: number;
-  duration: number;
-  width: number;
-  height: number;
-  thumbnail?: string | undefined;
-  /** normalized 0..1 peaks, generated asynchronously for audio/video */
-  waveform?: number[] | undefined;
-  createdAt: number;
-}
-
-export const DEFAULT_TRANSFORM: Transform = {
-  x: 0,
-  y: 0,
-  width: 1920,
-  height: 1080,
-  rotation: 0,
-  scale: 100,
-  opacity: 100,
-};
-
-export const DEFAULT_AUDIO: AudioProperties = {
-  volume: 100,
-  fadeIn: 0,
-  fadeOut: 0,
-  muted: false,
-};
-
-export const FONT_FAMILIES = [
-  "Barlow, sans-serif",
-  "Georgia, serif",
-  "Impact, sans-serif",
-  "'Courier New', monospace",
-  "'JetBrains Mono', monospace",
-  "'Trebuchet MS', sans-serif",
-  "Verdana, sans-serif",
-] as const;
-
-export const DEFAULT_TEXT_STYLE: TextStyle = {
-  fontFamily: "Barlow, sans-serif",
-  fontSize: 96,
-  bold: true,
-  italic: false,
-  underline: false,
-  align: "center",
-  color: "#ffffff",
-  colorOpacity: 100,
-  backgroundEnabled: false,
-  backgroundColor: "#000000",
-  backgroundOpacity: 60,
-  padding: 24,
-  borderRadius: 8,
-  strokeWidth: 0,
-  strokeColor: "#000000",
-};
-
-export const DEFAULT_CAPTION_STYLE: TextStyle = {
-  ...DEFAULT_TEXT_STYLE,
-  fontSize: 56,
-  bold: false,
-  backgroundEnabled: true,
-  backgroundOpacity: 70,
-  padding: 14,
-  strokeWidth: 2,
-};
-
-export function makeId(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
-}
-
-export function clipEnd(clip: Clip): number {
-  return clip.timelineStart + clip.duration;
-}
-
-export function projectDuration(project: Project): number {
-  let end = 0;
-  for (const track of project.tracks) {
-    for (const clip of track.clips) end = Math.max(end, clipEnd(clip));
-  }
-  return end;
-}
-
-export function findClip(
-  project: Project,
-  clipId: string | null,
-): { track: Track; clip: Clip } | null {
-  if (!clipId) return null;
-  for (const track of project.tracks) {
-    const clip = track.clips.find((c) => c.id === clipId);
-    if (clip) return { track, clip };
-  }
-  return null;
-}
-
-export function isTextual(clip: Clip): boolean {
-  return clip.type === "text" || clip.type === "caption";
-}
-
-export function hasVisual(clip: Clip): boolean {
-  return clip.type !== "audio";
-}
-
-export function trackTypeFor(clipType: ClipType): TrackType {
-  if (clipType === "audio") return "audio";
-  if (clipType === "text") return "text";
-  if (clipType === "caption") return "caption";
-  return "video";
-}
-
-/**
- * Older saved projects predate keyframes / text / audio props. Normalizing on
- * load keeps save/load backwards compatible.
- */
+export const DEFAULT_TRANSFORM: Transform = { x: 0, y: 0, width: 1920, height: 1080, rotation: 0, scale: 100, opacity: 100 };
+export const DEFAULT_AUDIO: AudioProperties = { volume: 100, fadeIn: 0, fadeOut: 0, muted: false };
+export const DEFAULT_TEXT_STYLE: TextStyle = { fontFamily: "Barlow, sans-serif", fontSize: 96, bold: true, italic: false, underline: false, align: "center", color: "#ffffff", colorOpacity: 100, backgroundEnabled: false, backgroundColor: "#000000", backgroundOpacity: 60, padding: 24, borderRadius: 8, strokeWidth: 0, strokeColor: "#000000" };
+export const DEFAULT_CAPTION_STYLE: TextStyle = { ...DEFAULT_TEXT_STYLE, fontSize: 56, bold: false, backgroundEnabled: true, backgroundOpacity: 70, padding: 14, strokeWidth: 2 };
+export function makeId(prefix: string): string { return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`; }
+export function clipEnd(clip: Clip): number { return clip.timelineStart + clip.duration; }
+export function projectDuration(project: Project): number { let end = 0; for (const track of project.tracks) for (const clip of track.clips) end = Math.max(end, clipEnd(clip)); return end; }
+export function findClip(project: Project, clipId: string | null): { track: Track; clip: Clip } | null { if (!clipId) return null; for (const track of project.tracks) { const clip = track.clips.find((c) => c.id === clipId); if (clip) return { track, clip }; } return null; }
+export function isTextual(clip: Clip): boolean { return clip.type === "text" || clip.type === "caption"; }
+export function hasVisual(clip: Clip): boolean { return clip.type !== "audio"; }
+export function trackTypeFor(clipType: ClipType): TrackType { if (clipType === "audio") return "audio"; if (clipType === "text") return "text"; if (clipType === "caption") return "caption"; return "video"; }
 export function normalizeProject(project: Project): Project {
-  const tracks = project.tracks.map((track) => ({
-    ...track,
-    clips: track.clips.map((clip) => ({
-      ...clip,
-      keyframes: clip.keyframes ?? [],
-      audio: { ...DEFAULT_AUDIO, ...(clip.audio ?? {}) },
-      transform: { ...DEFAULT_TRANSFORM, ...clip.transform },
-      ...(isTextual(clip)
-        ? {
-            text: clip.text ?? "Text",
-            style: {
-              ...(clip.type === "caption" ? DEFAULT_CAPTION_STYLE : DEFAULT_TEXT_STYLE),
-              ...(clip.style ?? {}),
-            },
-          }
-        : {}),
-    })),
-  }));
-  const ensure = (id: string, name: string, type: TrackType) =>
-    tracks.some((t) => t.type === type) ? null : { id, name, type, clips: [] };
-  const extra = [ensure("T1", "T1", "text"), ensure("C1", "C1", "caption")].filter(
-    (t): t is Track => t !== null,
-  );
+  const tracks = project.tracks.map((track) => ({ ...track, clips: track.clips.map((clip) => ({
+    ...clip, keyframes: clip.keyframes ?? [], audio: { ...DEFAULT_AUDIO, ...(clip.audio ?? {}) }, transform: { ...DEFAULT_TRANSFORM, ...clip.transform }, effects: clip.effects ?? [],
+    ...(isTextual(clip) ? { text: clip.text ?? "Text", style: { ...(clip.type === "caption" ? DEFAULT_CAPTION_STYLE : DEFAULT_TEXT_STYLE), ...(clip.style ?? {}) } } : {}),
+  })) }));
+  const ensure = (id: string, name: string, type: TrackType) => tracks.some((t) => t.type === type) ? null : { id, name, type, clips: [] };
+  const extra = [ensure("T1", "T1", "text"), ensure("C1", "CAPTION", "caption")].filter((t): t is Track => t !== null);
   return { ...project, tracks: [...tracks, ...extra] };
 }
+export const FONT_FAMILIES = ["Barlow, sans-serif", "Georgia, serif", "Impact, sans-serif", "'Courier New', monospace", "'JetBrains Mono', monospace", "'Trebuchet MS', sans-serif", "Verdana, sans-serif"] as const;
