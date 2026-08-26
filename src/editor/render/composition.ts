@@ -19,9 +19,14 @@ const TRACK_ORDER: Record<Track["type"], number> = { video: 0, audio: 0, text: 1
 
 function transitionFor(track: Track, clip: Clip, time: number) {
   const transition = clip.transitionIn;
-  if (!transition || transition.duration <= 0) return { active: time >= clip.timelineStart, opacity: 1, clipPath: undefined as string | undefined };
+  const end = clipEnd(clip);
+  // A clip must never remain visible after its timeline out point.
+  if (time >= end) return { active: false, opacity: 0, clipPath: undefined as string | undefined };
+  if (!transition || transition.duration <= 0) {
+    return { active: time >= clip.timelineStart, opacity: 1, clipPath: undefined as string | undefined };
+  }
   const start = clip.timelineStart - transition.duration;
-  if (time < start || time >= clipEnd(clip)) return { active: false, opacity: 0, clipPath: undefined as string | undefined };
+  if (time < start) return { active: false, opacity: 0, clipPath: undefined as string | undefined };
   const p = Math.max(0, Math.min(1, (time - start) / transition.duration));
   switch (transition.type) {
     case "wipe": return { active: true, opacity: 1, clipPath: `inset(0 ${Math.max(0, 100 - p * 100)}% 0 0)` };
@@ -40,8 +45,10 @@ export function composeLayers(project: Project, time: number): Layer[] {
   project.tracks.forEach((track, trackIndex) => {
     track.clips.forEach((clip) => {
       const transition = transitionFor(track, clip, time);
-      const active = clip.type === "audio" ? time >= clip.timelineStart && time < clipEnd(clip) : transition.active;
-      const sourceTime = clip.sourceStart + Math.max(0, time - clip.timelineStart);
+      const active = clip.type === "audio"
+        ? time >= clip.timelineStart && time < clipEnd(clip)
+        : transition.active && time < clipEnd(clip);
+      const sourceTime = clip.sourceStart + Math.max(0, Math.min(clip.duration, time - clip.timelineStart));
       layers.push({
         clip, track, zIndex: TRACK_ORDER[track.type] + trackIndex + 1,
         sourceTime, active, transform: resolveTransform(clip, time), volume: resolveVolume(clip, time),
