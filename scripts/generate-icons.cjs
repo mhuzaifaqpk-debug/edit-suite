@@ -45,11 +45,8 @@ function polygon(points, color) {
   }
 }
 
-// Dark editor-style background.
 roundRect(8, 8, 247, 247, 42, [18, 18, 22, 255]);
-// Timeline/play button mark.
 polygon([[78, 60], [78, 196], [194, 128]], [255, 255, 255, 255]);
-// Small editing timeline bars.
 roundRect(55, 203, 201, 216, 6, [90, 90, 100, 255]);
 roundRect(55, 222, 155, 235, 6, [90, 90, 100, 255]);
 
@@ -87,14 +84,12 @@ const png = Buffer.concat([
 
 fs.writeFileSync(path.join(assets, 'icon.png'), png);
 
-// ICO containing the PNG. Windows supports PNG-compressed images inside ICO containers.
 const icoHeader = Buffer.alloc(6);
 icoHeader.writeUInt16LE(0, 0);
 icoHeader.writeUInt16LE(1, 2);
 icoHeader.writeUInt16LE(1, 4);
 const dir = Buffer.alloc(16);
-dir[0] = 0; // width 256 is represented by 0
-ndir = 0;
+dir[0] = 0;
 dir[1] = 0;
 dir[2] = 0;
 dir[3] = 0;
