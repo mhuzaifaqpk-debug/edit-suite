@@ -103,9 +103,10 @@ export async function renderProject(
   if (!ctx) throw new Error("Could not create export canvas.");
 
   const mediaElements = new Map<string, HTMLVideoElement | HTMLAudioElement | HTMLImageElement>();
+  const audioGains = new Map<string, GainNode>();
   const audioContext = new AudioContext();
   const audioDestination = audioContext.createMediaStreamDestination();
-  const audioSources: AudioNode[] = [];
+  const audioNodes: AudioNode[] = [];
 
   try {
     const clips = project.tracks.flatMap((t) => t.clips).filter((c) => c.type === "video" || c.type === "audio" || c.type === "image");
@@ -138,7 +139,8 @@ export async function renderProject(
         const gain = audioContext.createGain();
         gain.gain.value = 0;
         source.connect(gain).connect(audioDestination);
-        audioSources.push(source);
+        audioNodes.push(source, gain);
+        audioGains.set(clip.id, gain);
       }
     }
 
@@ -163,6 +165,8 @@ export async function renderProject(
       ctx.fillRect(0, 0, project.width, project.height);
 
       for (const layer of layers) {
+        const gain = audioGains.get(layer.clip.id);
+        if (gain) gain.gain.value = layer.active ? Math.max(0, Math.min(1, layer.volume / 100)) : 0;
         const el = mediaElements.get(layer.clip.id);
         if (el && layer.clip.type !== "audio") {
           const sourceTime = layer.sourceTime;
@@ -189,7 +193,7 @@ export async function renderProject(
     onProgress?.({ phase: "encoding", progress: 1, currentTime: duration, duration });
     return new Blob(chunks, { type });
   } finally {
-    audioSources.forEach((node) => node.disconnect());
+    audioNodes.forEach((node) => node.disconnect());
     await audioContext.close().catch(() => {});
   }
 }
