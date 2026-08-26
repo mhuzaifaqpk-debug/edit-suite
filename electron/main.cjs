@@ -1,36 +1,20 @@
-const { app, BrowserWindow, session, ipcMain, dialog, protocol } = require('electron');
+const { app, BrowserWindow, session, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
 const { spawn } = require('child_process');
 const bundledFfmpegPath = require('ffmpeg-static');
 
-const APP_SCHEME = 'edit-suite';
-
-// The production renderer uses root-relative asset URLs such as /assets/*.js.
-// A file:// URL treats those as the computer's filesystem root, which causes a
-// packaged Electron app to open as a blank page. Register a proper application
-// protocol so root-relative URLs resolve inside .output/public.
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: APP_SCHEME,
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-      stream: true,
-    },
-  },
-]);
-
 const isDev = !app.isPackaged;
+let rendererServer = null;
+
 const ffmpegPath = bundledFfmpegPath && bundledFfmpegPath.includes('app.asar')
   ? bundledFfmpegPath.replace('app.asar', 'app.asar.unpacked')
   : bundledFfmpegPath;
 
 function getRendererRoot() {
-  return path.join(__dirname, '..', '.output', 'public');
+  return path.resolve(__dirname, '..', '.output', 'public');
 }
 
 function getMimeType(filePath) {
@@ -56,51 +40,78 @@ function getMimeType(filePath) {
   return types[ext] || 'application/octet-stream';
 }
 
-function registerRendererProtocol() {
-  protocol.handle(APP_SCHEME, async (request) => {
-    const url = new URL(request.url);
-    const rendererRoot = path.resolve(getRendererRoot());
+function startRendererServer() {
+  return new Promise((resolve, reject) => {
+    const rendererRoot = getRendererRoot();
 
-    // Keep the application files sandboxed inside .output/public.
-    let relativePath = decodeURIComponent(url.pathname).replace(/^\/+/, '');
-    if (!relativePath) relativePath = 'index.html';
-
-    const requestedPath = path.resolve(rendererRoot, relativePath);
-    const relativeToRoot = path.relative(rendererRoot, requestedPath);
-    const isInsideRoot = relativeToRoot === '' ||
-      (!relativeToRoot.startsWith('..' + path.sep) && relativeToRoot !== '..' && !path.isAbsolute(relativeToRoot));
-
-    if (!isInsideRoot) {
-      return new Response('Forbidden', { status: 403 });
+    if (!fs.existsSync(path.join(rendererRoot, 'index.html'))) {
+      reject(new Error(`Renderer build not found: ${path.join(rendererRoot, 'index.html')}`));
+      return;
     }
 
-    let filePath = requestedPath;
-    try {
-      const stat = await fs.promises.stat(filePath);
-      if (stat.isDirectory()) filePath = path.join(filePath, 'index.html');
-    } catch {
-      // TanStack Start client routes need the app shell when navigating directly.
-      // Files with an extension should still return a normal 404.
-      if (path.extname(relativePath)) return new Response('Not Found', { status: 404 });
-      filePath = path.join(rendererRoot, 'index.html');
-    }
+    rendererServer = http.createServer(async (req, res) => {
+      try {
+        const rawUrl = String(req.url || '/').split('?')[0];
+        let relativePath = decodeURIComponent(rawUrl).replace(/^\/+/, '');
+        if (!relativePath) relativePath = 'index.html';
 
-    try {
-      const data = await fs.promises.readFile(filePath);
-      return new Response(data, {
-        status: 200,
-        headers: {
+        const requestedPath = path.resolve(rendererRoot, relativePath);
+        const relativeToRoot = path.relative(rendererRoot, requestedPath);
+        const isInsideRoot = relativeToRoot === '' ||
+          (!relativeToRoot.startsWith('..' + path.sep) &&
+            relativeToRoot !== '..' &&
+            !path.isAbsolute(relativeToRoot));
+
+        if (!isInsideRoot) {
+          res.writeHead(403);
+          res.end('Forbidden');
+          return;
+        }
+
+        let filePath = requestedPath;
+        try {
+          const stat = await fs.promises.stat(filePath);
+          if (stat.isDirectory()) filePath = path.join(filePath, 'index.html');
+        } catch {
+          // Client-side routes get the application shell. Real asset requests get 404.
+          if (path.extname(relativePath)) {
+            res.writeHead(404);
+            res.end('Not Found');
+            return;
+          }
+          filePath = path.join(rendererRoot, 'index.html');
+        }
+
+        const data = await fs.promises.readFile(filePath);
+        res.writeHead(200, {
           'Content-Type': getMimeType(filePath),
           'Cache-Control': 'no-cache',
-        },
-      });
-    } catch {
-      return new Response('Not Found', { status: 404 });
-    }
+        });
+        res.end(data);
+      } catch (error) {
+        console.error('[renderer-server]', error);
+        res.writeHead(500);
+        res.end('Internal Server Error');
+      }
+    });
+
+    // Bind only to localhost. Electron loads the production renderer over HTTP,
+    // avoiding file:// and custom-protocol path/asset resolution problems.
+    rendererServer.once('error', reject);
+    rendererServer.listen(0, '127.0.0.1', () => {
+      const address = rendererServer.address();
+      const port = typeof address === 'object' && address ? address.port : null;
+      if (!port) {
+        reject(new Error('Could not determine renderer server port'));
+        return;
+      }
+      rendererServer.removeListener('error', reject);
+      resolve(`http://127.0.0.1:${port}`);
+    });
   });
 }
 
-function createWindow() {
+async function createWindow() {
   const win = new BrowserWindow({
     width: 1600,
     height: 1000,
@@ -117,10 +128,10 @@ function createWindow() {
   });
 
   if (isDev) {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools({ mode: 'detach' });
+    await win.loadURL('http://localhost:5173');
   } else {
-    win.loadURL(`${APP_SCHEME}://app/index.html`);
+    const rendererUrl = await startRendererServer();
+    await win.loadURL(rendererUrl);
   }
 }
 
@@ -165,14 +176,29 @@ ipcMain.handle('save-export', async (_event, { buffer, format, suggestedName }) 
   }
 });
 
-app.whenReady().then(() => {
-  registerRendererProtocol();
+app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  createWindow();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  try {
+    await createWindow();
+  } catch (error) {
+    console.error('[Edit Suite] Failed to start renderer:', error);
+    dialog.showErrorBox('Edit Suite failed to start', String(error?.stack || error));
+    app.quit();
+  }
+
+  app.on('activate', async () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      try { await createWindow(); } catch (error) { console.error(error); }
+    }
   });
+});
+
+app.on('before-quit', () => {
+  if (rendererServer) {
+    rendererServer.close();
+    rendererServer = null;
+  }
 });
 
 app.on('window-all-closed', () => {
