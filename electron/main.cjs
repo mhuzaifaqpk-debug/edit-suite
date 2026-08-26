@@ -30,7 +30,9 @@ function createWindow() {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    // TanStack Start/Nitro outputs the browser app to .output/public.
+    // Do not use dist/index.html: this project does not produce a Vite-only dist folder.
+    win.loadFile(path.join(__dirname, '..', '.output', 'public', 'index.html'));
   }
 }
 
