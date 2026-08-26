@@ -1,75 +1,10 @@
-import { Captions, Film, Image as ImageIcon, Music, Type } from "lucide-react";
+import { Captions, Film, Image as ImageIcon, Music, Shapes, Type } from "lucide-react";
 import { useRef } from "react";
 import { timecode } from "../format";
 import { mediaManager } from "../media-manager";
 import { editorStore } from "../store";
 import type { Clip, Track } from "../types";
-
-const ICONS = { video: Film, image: ImageIcon, audio: Music, text: Type, caption: Captions } as const;
-const CLIP_CLASSES: Record<Clip["type"], string> = {
-  video: "bg-clip-video text-clip-video-fg",
-  image: "bg-clip-image text-clip-image-fg",
-  audio: "bg-clip-audio text-clip-audio-fg",
-  text: "bg-purple-600/80 text-white",
-  caption: "bg-amber-600/80 text-white",
-};
-
-type Gesture = { kind: "move"; startX: number; startTime: number } | { kind: "trim"; edge: "start" | "end" };
-
-export function TimelineClip({ clip, track, pixelsPerSecond, selected }: { clip: Clip; track: Track; pixelsPerSecond: number; selected: boolean }) {
-  const gesture = useRef<Gesture | null>(null);
-  const Icon = ICONS[clip.type];
-  const asset = clip.mediaId ? mediaManager.getAsset(clip.mediaId) : undefined;
-  const probed = asset?.duration ?? 0;
-  const sourceDuration = clip.type === "image" || clip.type === "text" || clip.type === "caption" || !Number.isFinite(probed) || probed <= 0 ? Infinity : probed;
-
-  const timeAt = (clientX: number, el: HTMLElement) => {
-    const lane = el.closest("[data-lane]") as HTMLElement | null;
-    if (!lane) return clip.timelineStart;
-    return (clientX - lane.getBoundingClientRect().left) / pixelsPerSecond;
-  };
-  const startGesture = (e: React.PointerEvent, g: Gesture) => {
-    e.stopPropagation();
-    editorStore.select(clip.id);
-    gesture.current = g;
-    editorStore.beginBatch();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const g = gesture.current;
-    if (!g) return;
-    const el = e.currentTarget as HTMLElement;
-    if (g.kind === "move") {
-      const delta = (e.clientX - g.startX) / pixelsPerSecond;
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-track-id]") as HTMLElement | null;
-      const targetTrack = target?.dataset["trackId"];
-      const targetType = target?.dataset["trackType"];
-      const compatible = targetTrack && targetType === (clip.type === "audio" ? "audio" : clip.type === "text" ? "text" : clip.type === "caption" ? "caption" : "video") ? targetTrack : undefined;
-      editorStore.moveClip(clip.id, Math.max(0, g.startTime + delta), compatible, true);
-    } else {
-      editorStore.trimClip(clip.id, g.edge, timeAt(e.clientX, el), sourceDuration, true);
-    }
-  };
-  const endGesture = (e: React.PointerEvent) => {
-    if (!gesture.current) return;
-    gesture.current = null;
-    editorStore.endBatch();
-    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-  };
-  const width = Math.max(6, clip.duration * pixelsPerSecond);
-
-  return (
-    <div role="button" tabIndex={0} aria-label={`${clip.name} clip`} className={`no-select absolute top-1 bottom-1 overflow-hidden rounded-sm border ${CLIP_CLASSES[clip.type]} ${selected ? "border-primary ring-1 ring-primary" : "border-black/30"}`} style={{ left: clip.timelineStart * pixelsPerSecond, width }} onPointerDown={(e) => { if (e.button !== 0) return; startGesture(e, { kind: "move", startX: e.clientX, startTime: clip.timelineStart }); }} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture} onKeyDown={(e) => { if (e.key === "Enter") editorStore.select(clip.id); }}>
-      <div className="flex h-4 items-center gap-1 bg-black/25 px-1 text-[10px] font-medium">
-        <Icon className="h-2.5 w-2.5 shrink-0" />
-        <span className="truncate">{clip.name}</span>
-        <span className="tc ml-auto shrink-0 opacity-70">{timecode(clip.duration)}</span>
-      </div>
-      {clip.type !== "audio" && clip.type !== "text" && clip.type !== "caption" && asset?.thumbnail ? <div className="pointer-events-none absolute inset-x-0 bottom-0 top-4 opacity-40" style={{ backgroundImage: `url(${asset.thumbnail})`, backgroundSize: "auto 100%", backgroundRepeat: "repeat-x" }} /> : null}
-      {clip.type === "audio" ? <div className="pointer-events-none absolute inset-x-0 bottom-1 top-5 flex items-end gap-px px-1 opacity-50">{Array.from({ length: Math.max(2, Math.floor(width / 4)) }).map((_, i) => <span key={i} className="flex-1 rounded-sm bg-current" style={{ height: `${28 + Math.abs(Math.sin(i * 0.7) * 60)}%` }} />)}</div> : null}
-      {clip.type === "text" || clip.type === "caption" ? <div className="pointer-events-none truncate px-2 py-2 text-[10px] font-semibold">{clip.text}</div> : null}
-      <div className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-black/40 hover:bg-primary" onPointerDown={(e) => startGesture(e, { kind: "trim", edge: "start" })} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture} />
-      <div className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-black/40 hover:bg-primary" onPointerDown={(e) => startGesture(e, { kind: "trim", edge: "end" })} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture} />
-    </div>
-  );
-}
+const ICONS={video:Film,image:ImageIcon,audio:Music,text:Type,caption:Captions,shape:Shapes} as const;
+const CLIP_CLASSES:Record<Clip["type"],string>={video:"bg-clip-video text-clip-video-fg",image:"bg-clip-image text-clip-image-fg",audio:"bg-clip-audio text-clip-audio-fg",text:"bg-purple-600/80 text-white",caption:"bg-amber-600/80 text-white",shape:"bg-slate-500/80 text-white"};
+type Gesture={kind:"move";startX:number;startTime:number}|{kind:"trim";edge:"start"|"end"};
+export function TimelineClip({clip,track,pixelsPerSecond,selected}:{clip:Clip;track:Track;pixelsPerSecond:number;selected:boolean}){const gesture=useRef<Gesture|null>(null);const Icon=ICONS[clip.type];const asset=clip.mediaId?mediaManager.getAsset(clip.mediaId):undefined;const probed=asset?.duration??0;const sourceDuration=clip.type==="image"||clip.type==="text"||clip.type==="caption"||clip.type==="shape"||!Number.isFinite(probed)||probed<=0?Infinity:probed;const timeAt=(clientX:number,el:HTMLElement)=>{const lane=el.closest("[data-lane]") as HTMLElement|null;if(!lane)return clip.timelineStart;return(clientX-lane.getBoundingClientRect().left)/pixelsPerSecond};const startGesture=(e:React.PointerEvent,g:Gesture)=>{e.stopPropagation();editorStore.select(clip.id);gesture.current=g;editorStore.beginBatch();(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)};const onPointerMove=(e:React.PointerEvent)=>{const g=gesture.current;if(!g)return;const el=e.currentTarget as HTMLElement;if(g.kind==="move"){const delta=(e.clientX-g.startX)/pixelsPerSecond;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest("[data-track-id]") as HTMLElement|null;const targetTrack=target?.dataset["trackId"];const targetType=target?.dataset["trackType"];const compatible=targetTrack&&targetType===(clip.type==="audio"?"audio":clip.type==="text"?"text":clip.type==="caption"?"caption":clip.type==="shape"?"shape":"video")?targetTrack:undefined;editorStore.moveClip(clip.id,Math.max(0,g.startTime+delta),compatible,true)}else editorStore.trimClip(clip.id,g.edge,timeAt(e.clientX,el),sourceDuration,true)};const endGesture=(e:React.PointerEvent)=>{if(!gesture.current)return;gesture.current=null;editorStore.endBatch();(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)};const width=Math.max(6,clip.duration*pixelsPerSecond);const dropEffect=(e:React.DragEvent)=>{const raw=e.dataTransfer.getData("application/x-edit-suite-effect");if(!raw)return;e.preventDefault();try{const p=JSON.parse(raw);editorStore.edit(pr=>{const c=pr.tracks.flatMap(t=>t.clips).find(c=>c.id===clip.id);if(c)(c.effects??=[]).push({id:`fx_${Date.now()}`,type:p.type,name:p.name,enabled:true,parameters:{amount:p.defaultAmount},keyframes:[]})})}catch{}};return <div role="button" tabIndex={0} aria-label={`${clip.name} clip`} className={`no-select absolute top-1 bottom-1 overflow-hidden rounded-sm border ${CLIP_CLASSES[clip.type]} ${selected?"border-primary ring-1 ring-primary":"border-black/30"}`} style={{left:clip.timelineStart*pixelsPerSecond,width}} onDragOver={e=>{if(e.dataTransfer.types.includes("application/x-edit-suite-effect")){e.preventDefault();e.dataTransfer.dropEffect="copy"}}} onDrop={dropEffect} onPointerDown={e=>{if(e.button!==0)return;startGesture(e,{kind:"move",startX:e.clientX,startTime:clip.timelineStart})}} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture} onKeyDown={e=>{if(e.key==="Enter")editorStore.select(clip.id)}}><div className="flex h-4 items-center gap-1 bg-black/25 px-1 text-[10px] font-medium"><Icon className="h-2.5 w-2.5 shrink-0"/><span className="truncate">{clip.name}</span><span className="tc ml-auto shrink-0 opacity-70">{timecode(clip.duration)}</span></div>{clip.type!=="audio"&&clip.type!=="text"&&clip.type!=="caption"&&clip.type!=="shape"&&asset?.thumbnail?<div className="pointer-events-none absolute inset-x-0 bottom-0 top-4 opacity-40" style={{backgroundImage:`url(${asset.thumbnail})`,backgroundSize:"auto 100%",backgroundRepeat:"repeat-x"}}/>:null}{clip.type==="audio"?<div className="pointer-events-none absolute inset-x-0 bottom-1 top-5 flex items-end gap-px px-1 opacity-50">{Array.from({length:Math.max(2,Math.floor(width/4))}).map((_,i)=><span key={i} className="flex-1 rounded-sm bg-current" style={{height:`${28+Math.abs(Math.sin(i*.7)*60)}%`}}/>)}</div>:null}{clip.type==="text"||clip.type==="caption"?<div className="pointer-events-none truncate px-2 py-2 text-[10px] font-semibold">{clip.text}</div>:null}{clip.type==="shape"?<div className="pointer-events-none px-2 py-2 text-[10px] font-semibold">{clip.shape?.kind}</div>:null}<div className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize bg-black/40 hover:bg-primary" onPointerDown={e=>startGesture(e,{kind:"trim",edge:"start"})} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture}/><div className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize bg-black/40 hover:bg-primary" onPointerDown={e=>startGesture(e,{kind:"trim",edge:"end"})} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture}/></div>}
