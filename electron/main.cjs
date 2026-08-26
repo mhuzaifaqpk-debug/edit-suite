@@ -14,7 +14,9 @@ const ffmpegPath = bundledFfmpegPath && bundledFfmpegPath.includes('app.asar')
   : bundledFfmpegPath;
 
 function getRendererRoot() {
-  return path.resolve(__dirname, '..', '.output', 'public');
+  // Production builds are copied into electron/renderer before packaging.
+  // This folder is guaranteed to be included by electron-builder.
+  return path.join(__dirname, 'renderer');
 }
 
 function getMimeType(filePath) {
@@ -35,6 +37,7 @@ function getMimeType(filePath) {
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
     '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
     '.map': 'application/json; charset=utf-8',
   };
   return types[ext] || 'application/octet-stream';
@@ -43,16 +46,25 @@ function getMimeType(filePath) {
 function startRendererServer() {
   return new Promise((resolve, reject) => {
     const rendererRoot = getRendererRoot();
+    const indexPath = path.join(rendererRoot, 'index.html');
 
-    if (!fs.existsSync(path.join(rendererRoot, 'index.html'))) {
-      reject(new Error(`Renderer build not found: ${path.join(rendererRoot, 'index.html')}`));
+    if (!fs.existsSync(indexPath)) {
+      reject(new Error(`Renderer files were not packaged correctly. Missing: ${indexPath}`));
       return;
     }
 
     rendererServer = http.createServer(async (req, res) => {
       try {
         const rawUrl = String(req.url || '/').split('?')[0];
-        let relativePath = decodeURIComponent(rawUrl).replace(/^\/+/, '');
+        let relativePath;
+        try {
+          relativePath = decodeURIComponent(rawUrl).replace(/^\/+/, '');
+        } catch {
+          res.writeHead(400);
+          res.end('Bad Request');
+          return;
+        }
+
         if (!relativePath) relativePath = 'index.html';
 
         const requestedPath = path.resolve(rendererRoot, relativePath);
@@ -73,13 +85,13 @@ function startRendererServer() {
           const stat = await fs.promises.stat(filePath);
           if (stat.isDirectory()) filePath = path.join(filePath, 'index.html');
         } catch {
-          // Client-side routes get the application shell. Real asset requests get 404.
+          // Extensionless URLs are client-side routes; asset URLs remain real 404s.
           if (path.extname(relativePath)) {
             res.writeHead(404);
             res.end('Not Found');
             return;
           }
-          filePath = path.join(rendererRoot, 'index.html');
+          filePath = indexPath;
         }
 
         const data = await fs.promises.readFile(filePath);
@@ -95,8 +107,6 @@ function startRendererServer() {
       }
     });
 
-    // Bind only to localhost. Electron loads the production renderer over HTTP,
-    // avoiding file:// and custom-protocol path/asset resolution problems.
     rendererServer.once('error', reject);
     rendererServer.listen(0, '127.0.0.1', () => {
       const address = rendererServer.address();
@@ -106,7 +116,7 @@ function startRendererServer() {
         return;
       }
       rendererServer.removeListener('error', reject);
-      resolve(`http://127.0.0.1:${port}`);
+      resolve(`http://127.0.0.1:${port}/`);
     });
   });
 }
