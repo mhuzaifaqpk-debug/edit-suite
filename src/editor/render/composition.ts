@@ -1,74 +1,9 @@
 import { clipEnd, type Clip, type Project, type Track, type Transform } from "../types";
 import { resolveTransform, resolveVolume } from "./keyframes";
 import { combinedFilter } from "./effects";
-
-export interface Layer {
-  clip: Clip;
-  track: Track;
-  zIndex: number;
-  sourceTime: number;
-  active: boolean;
-  transform: Transform;
-  volume: number;
-  filter: string;
-  transitionOpacity: number;
-  transitionClipPath?: string;
-}
-
-const TRACK_ORDER: Record<Track["type"], number> = { video: 0, audio: 0, text: 1000, caption: 2000 };
-
-function transitionFor(track: Track, clip: Clip, time: number) {
-  const transition = clip.transitionIn;
-  const end = clipEnd(clip);
-  // A clip must never remain visible after its timeline out point.
-  if (time >= end) return { active: false, opacity: 0, clipPath: undefined as string | undefined };
-  if (!transition || transition.duration <= 0) {
-    return { active: time >= clip.timelineStart, opacity: 1, clipPath: undefined as string | undefined };
-  }
-  const start = clip.timelineStart - transition.duration;
-  if (time < start) return { active: false, opacity: 0, clipPath: undefined as string | undefined };
-  const p = Math.max(0, Math.min(1, (time - start) / transition.duration));
-  switch (transition.type) {
-    case "wipe": return { active: true, opacity: 1, clipPath: `inset(0 ${Math.max(0, 100 - p * 100)}% 0 0)` };
-    case "slide": return { active: true, opacity: 1, clipPath: undefined };
-    case "zoom": return { active: true, opacity: 1, clipPath: undefined };
-    case "blur": return { active: true, opacity: p, clipPath: undefined };
-    case "fade":
-    case "dissolve":
-    case "push":
-    default: return { active: true, opacity: p, clipPath: undefined };
-  }
-}
-
-export function composeLayers(project: Project, time: number): Layer[] {
-  const layers: Layer[] = [];
-  project.tracks.forEach((track, trackIndex) => {
-    track.clips.forEach((clip) => {
-      const transition = transitionFor(track, clip, time);
-      const active = clip.type === "audio"
-        ? time >= clip.timelineStart && time < clipEnd(clip)
-        : transition.active && time < clipEnd(clip);
-      const sourceTime = clip.sourceStart + Math.max(0, Math.min(clip.duration, time - clip.timelineStart));
-      layers.push({
-        clip, track, zIndex: TRACK_ORDER[track.type] + trackIndex + 1,
-        sourceTime, active, transform: resolveTransform(clip, time), volume: resolveVolume(clip, time),
-        filter: combinedFilter(clip.effects), transitionOpacity: transition.opacity, transitionClipPath: transition.clipPath,
-      });
-    });
-  });
-  return layers.sort((a, b) => a.zIndex - b.zIndex);
-}
-
-export function layerStyle(t: Transform, zIndex = 1, extra: React.CSSProperties = {}): React.CSSProperties {
-  return {
-    position: "absolute", left: "50%", top: "50%", width: `${t.width}px`, height: `${t.height}px`, opacity: t.opacity / 100,
-    zIndex, transform: `translate(-50%, -50%) translate(${t.x}px, ${t.y}px) rotate(${t.rotation}deg) scale(${t.scale / 100})`,
-    transformOrigin: "center center", willChange: "transform, opacity, filter", ...extra,
-  };
-}
-
-export function rgba(hex: string, opacityPercent: number): string {
-  const h = hex.replace("#", ""); const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n = Number.parseInt(full || "000000", 16); const r = (n >> 16) & 255; const g = (n >> 8) & 255; const b = n & 255;
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, opacityPercent)) / 100})`;
-}
+export interface Layer { clip: Clip; track: Track; zIndex: number; sourceTime: number; active: boolean; transform: Transform; volume: number; filter: string; transitionOpacity: number; transitionClipPath?: string; }
+const TRACK_ORDER: Record<Track["type"], number> = { video: 0, audio: 0, text: 1000, caption: 1000, shape: 1500 };
+function transitionFor(track: Track, clip: Clip, time: number) { const transition=clip.transitionIn; const end=clipEnd(clip); if(time>=end)return{active:false,opacity:0,clipPath:undefined as string|undefined}; if(!transition||transition.duration<=0)return{active:time>=clip.timelineStart,opacity:1,clipPath:undefined as string|undefined}; const start=clip.timelineStart-transition.duration;if(time<start)return{active:false,opacity:0,clipPath:undefined as string|undefined};const p=Math.max(0,Math.min(1,(time-start)/transition.duration));switch(transition.type){case "wipe":return{active:true,opacity:1,clipPath:`inset(0 ${Math.max(0,100-p*100)}% 0 0)`};case "blur":return{active:true,opacity:p,clipPath:undefined};default:return{active:true,opacity:p,clipPath:undefined};}}
+export function composeLayers(project: Project,time:number):Layer[]{const layers:Layer[]=[];project.tracks.forEach((track,trackIndex)=>track.clips.forEach(clip=>{const transition=transitionFor(track,clip,time);const active=clip.type==="audio"?time>=clip.timelineStart&&time<clipEnd(clip):transition.active&&time<clipEnd(clip);const sourceTime=clip.sourceStart+Math.max(0,Math.min(clip.duration,time-clip.timelineStart));layers.push({clip,track,zIndex:TRACK_ORDER[track.type]+trackIndex+1,sourceTime,active,transform:resolveTransform(clip,time),volume:resolveVolume(clip,time),filter:combinedFilter(clip.effects,time-clip.timelineStart),transitionOpacity:transition.opacity,transitionClipPath:transition.clipPath});}));return layers.sort((a,b)=>a.zIndex-b.zIndex);}
+export function layerStyle(t:Transform,zIndex=1,extra:React.CSSProperties={}):React.CSSProperties{return{position:"absolute",left:"50%",top:"50%",width:`${t.width}px`,height:`${t.height}px`,opacity:t.opacity/100,zIndex,transform:`translate(-50%, -50%) translate(${t.x}px, ${t.y}px) rotate(${t.rotation}deg) scale(${t.scale/100})`,transformOrigin:"center center",willChange:"transform, opacity, filter",...extra};}
+export function rgba(hex:string,opacityPercent:number):string{const h=hex.replace("#","");const full=h.length===3?h.split("").map(c=>c+c).join(""):h;const n=Number.parseInt(full||"000000",16);return`rgba(${(n>>16)&255}, ${(n>>8)&255}, ${n&255}, ${Math.max(0,Math.min(100,opacityPercent))/100})`;}
