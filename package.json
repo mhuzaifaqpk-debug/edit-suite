@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently -k \"vite dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "dist": "npm run build && electron-builder --win nsis",
+    "generate-icons": "node scripts/generate-icons.cjs",
+    "dist": "npm run generate-icons && npm run build && electron-builder --win nsis",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -28,7 +29,7 @@
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-dropdown-menu": "^2.2.6",
     "@radix-ui/react-hover-card": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-menubar": "^1.1.13",
@@ -94,6 +95,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",
+    "vite-tsconfig-paths": "^6.0.0",
     "wait-on": "^8.0.4"
   },
   "build": {
@@ -106,6 +108,8 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
+      "assets/icon.png",
+      "assets/icon.ico",
       "node_modules/ffmpeg-static/**/*"
     ],
     "asar": true,
@@ -113,6 +117,7 @@
       "node_modules/ffmpeg-static/**/*"
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
