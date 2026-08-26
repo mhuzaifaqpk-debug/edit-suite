@@ -168,7 +168,14 @@ export async function renderProject(
         const gain = audioGains.get(layer.clip.id);
         if (gain) gain.gain.value = layer.active ? Math.max(0, Math.min(1, layer.volume / 100)) : 0;
         const el = mediaElements.get(layer.clip.id);
-        if (el && layer.clip.type !== "audio") {
+        if (el && layer.clip.type === "audio") {
+          const audio = el as HTMLAudioElement;
+          if (Math.abs(audio.currentTime - layer.sourceTime) > 0.15) {
+            try { audio.currentTime = layer.sourceTime; } catch { /* ignore seek race */ }
+          }
+          if (audio.paused && layer.active) await audio.play().catch(() => {});
+          if (!layer.active && !audio.paused) audio.pause();
+        } else if (el) {
           const sourceTime = layer.sourceTime;
           const media = el as HTMLVideoElement;
           if (media.readyState >= 2 && Math.abs(media.currentTime - sourceTime) > 0.12) {
