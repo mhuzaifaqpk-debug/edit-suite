@@ -1,6 +1,5 @@
 import { Captions, Plus, Type } from "lucide-react";
 import { useEditor, editorStore } from "../store";
-import { findClip, FONT_FAMILIES } from "../types";
 
 function AddButton({ kind }: { kind: "text" | "caption" }) {
   const Icon = kind === "text" ? Type : Captions;
@@ -19,16 +18,13 @@ function AddButton({ kind }: { kind: "text" | "caption" }) {
 
 export function TextPanel({ kind }: { kind: "text" | "caption" }) {
   const project = useEditor((s) => s.project);
-  const clips = project.tracks
-    .filter((track) => track.type === kind)
-    .flatMap((track) => track.clips);
+  const selectedClipId = useEditor((s) => s.selectedClipId);
+  const clips = project.tracks.filter((track) => track.type === kind).flatMap((track) => track.clips);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-border p-2">
-        <AddButton kind={kind} />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div className="border-b border-border p-2"><AddButton kind={kind} /></div>
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {clips.length === 0 ? (
           <p className="px-1 pt-2 text-xs leading-relaxed text-muted-foreground">
             {kind === "text"
@@ -41,11 +37,7 @@ export function TextPanel({ kind }: { kind: "text" | "caption" }) {
               key={clip.id}
               type="button"
               onClick={() => editorStore.select(clip.id)}
-              className={`w-full rounded-sm border p-2 text-left ${
-                useEditor.getState().selectedClipId === clip.id
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-panel-raised hover:border-primary/60"
-              }`}
+              className={`w-full rounded-sm border p-2 text-left ${selectedClipId === clip.id ? "border-primary bg-primary/10" : "border-border bg-panel-raised hover:border-primary/60"}`}
             >
               <div className="flex items-center gap-2">
                 {kind === "text" ? <Type className="h-3.5 w-3.5" /> : <Captions className="h-3.5 w-3.5" />}
@@ -61,10 +53,3 @@ export function TextPanel({ kind }: { kind: "text" | "caption" }) {
     </div>
   );
 }
-
-export function selectedTextStyleDefaults(kind: "text" | "caption") {
-  const clip = findClip(editorStore.getState().project, editorStore.getState().selectedClipId)?.clip;
-  return clip?.style ?? undefined;
-}
-
-export { FONT_FAMILIES };
