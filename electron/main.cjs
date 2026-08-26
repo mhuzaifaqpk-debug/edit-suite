@@ -3,9 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
-const ffmpegPath = require('ffmpeg-static');
+const bundledFfmpegPath = require('ffmpeg-static');
 
 const isDev = !app.isPackaged;
+const ffmpegPath = bundledFfmpegPath && bundledFfmpegPath.includes('app.asar')
+  ? bundledFfmpegPath.replace('app.asar', 'app.asar.unpacked')
+  : bundledFfmpegPath;
 
 function createWindow() {
   const win = new BrowserWindow({
