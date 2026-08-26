@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const net = require('net');
 const { spawn } = require('child_process');
 const bundledFfmpegPath = require('ffmpeg-static');
 
@@ -15,24 +16,12 @@ const ffmpegPath = bundledFfmpegPath && bundledFfmpegPath.includes('app.asar')
   : bundledFfmpegPath;
 
 function getProductionServerEntry() {
-  return path.join(process.resourcesPath, '.output', 'server', 'index.mjs');
+  return path.join(__dirname, '..', '.output', 'server', 'index.mjs');
 }
 
 function waitForServer(url, timeout = 30000) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
-    const check = () => {
-      const request = http.get(url, (res) => {
-        res.resume();
-        if (res.statusCode && res.statusCode < 500) {
-          resolve();
-        } else {
-          retry();
-        }
-      });
-      request.on('error', retry);
-      request.setTimeout(1000, () => request.destroy());
-    };
     const retry = () => {
       if (Date.now() - started > timeout) {
         reject(new Error(`Timed out waiting for the production renderer at ${url}`));
@@ -40,7 +29,28 @@ function waitForServer(url, timeout = 30000) {
       }
       setTimeout(check, 150);
     };
+    const check = () => {
+      const request = http.get(url, (res) => {
+        res.resume();
+        if (res.statusCode && res.statusCode < 500) resolve();
+        else retry();
+      });
+      request.on('error', retry);
+      request.setTimeout(1000, () => request.destroy());
+    };
     check();
+  });
+}
+
+function reservePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = address && typeof address === 'object' ? address.port : null;
+      server.close(() => port ? resolve(port) : reject(new Error('Could not allocate renderer port')));
+    });
   });
 }
 
@@ -50,16 +60,7 @@ async function startProductionServer() {
     throw new Error(`Production server was not packaged correctly. Missing: ${serverEntry}`);
   }
 
-  rendererPort = await new Promise((resolve, reject) => {
-    const server = require('net').createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      const port = address && typeof address === 'object' ? address.port : null;
-      server.close(() => port ? resolve(port) : reject(new Error('Could not allocate renderer port')));
-    });
-  });
-
+  rendererPort = await reservePort();
   rendererServerProcess = spawn(process.execPath, [serverEntry], {
     env: {
       ...process.env,
@@ -99,7 +100,7 @@ async function createWindow() {
     minWidth: 1100,
     minHeight: 700,
     backgroundColor: '#111111',
-    icon: path.join(process.resourcesPath, 'assets', 'icon.png'),
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -140,15 +141,12 @@ ipcMain.handle('save-export', async (_event, { buffer, format, suggestedName }) 
   const input = path.join(tempDir, 'render.webm');
   try {
     fs.writeFileSync(input, Buffer.from(buffer));
-    if (format === 'webm') {
-      fs.copyFileSync(input, result.filePath);
-    } else {
+    if (format === 'webm') fs.copyFileSync(input, result.filePath);
+    else {
       await runFfmpeg([
         '-y', '-i', input,
         '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
-        '-c:a', 'aac', '-b:a', '192k',
-        '-movflags', '+faststart',
-        result.filePath,
+        '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', result.filePath,
       ]);
     }
     return { canceled: false, filePath: result.filePath };
@@ -176,7 +174,4 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', stopProductionServer);
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
