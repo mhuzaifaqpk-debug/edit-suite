@@ -1,6 +1,7 @@
 import { Captions, Film, Music, Sparkles, Type, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { MediaPanel } from "./MediaPanel";
+import { TextPanel } from "./TextPanel";
 
 const TABS = [
   { id: "media", label: "Media", icon: Film },
@@ -13,13 +14,6 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-const PHASE_NOTES: Record<Exclude<TabId, "media" | "audio">, string> = {
-  text: "Text layers and typography controls are planned for a later phase. Nothing here is wired up yet.",
-  captions: "Caption tracks and transcript editing are planned for a later phase.",
-  effects: "Filters and effects are planned for a later phase.",
-  transitions: "Clip transitions are planned for a later phase.",
-};
-
 export function LeftPanel({ onImport }: { onImport: () => void }) {
   const [tab, setTab] = useState<TabId>("media");
 
@@ -27,34 +21,23 @@ export function LeftPanel({ onImport }: { onImport: () => void }) {
     <aside className="flex min-h-0 w-72 shrink-0 flex-col border-r border-border bg-panel">
       <nav className="grid grid-cols-3 border-b border-border">
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={`flex flex-col items-center gap-1 border-b-2 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
-              tab === id
-                ? "border-primary bg-panel-raised text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
+          <button key={id} type="button" onClick={() => setTab(id)} className={`flex flex-col items-center gap-1 border-b-2 py-2 text-[10px] font-semibold uppercase tracking-wide transition-colors ${tab === id ? "border-primary bg-panel-raised text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
             <Icon className="h-4 w-4" />
             {label}
           </button>
         ))}
       </nav>
 
-      {tab === "media" ? (
-        <MediaPanel onImport={onImport} />
-      ) : tab === "audio" ? (
-        <MediaPanel filter="audio" onImport={onImport} />
-      ) : (
+      {tab === "media" ? <MediaPanel onImport={onImport} /> : null}
+      {tab === "audio" ? <MediaPanel filter="audio" onImport={onImport} /> : null}
+      {tab === "text" ? <TextPanel kind="text" /> : null}
+      {tab === "captions" ? <TextPanel kind="caption" /> : null}
+      {tab === "effects" || tab === "transitions" ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-          <span className="rounded-sm border border-border bg-panel-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Later phase
-          </span>
-          <p className="text-xs leading-relaxed text-muted-foreground">{PHASE_NOTES[tab]}</p>
+          <span className="rounded-sm border border-border bg-panel-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Later phase</span>
+          <p className="text-xs leading-relaxed text-muted-foreground">{tab === "effects" ? "Effects and filters are coming in Phase 5." : "Transitions are coming in Phase 5."}</p>
         </div>
-      )}
+      ) : null}
     </aside>
   );
 }
